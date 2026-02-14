@@ -192,6 +192,56 @@ describe('WebApplicationsSourceAdapter', () => {
     });
   });
 
+  describe('app name case', () => {
+    const buildAdapterWithAppName = (appName: string) => {
+      const appPath = join(BASE_PATH, appName);
+      const metaFile = join(appPath, `${appName}.webapplication-meta.xml`);
+      const distPath = join(appPath, 'dist');
+      const config = { outputDir: 'dist', routing: { trailingSlash: 'auto', fallback: '/index.html' } };
+      const vfs: VirtualDirectory[] = [
+        {
+          dirPath: appPath,
+          children: [
+            `${appName}.webapplication-meta.xml`,
+            { name: 'webapplication.json', data: Buffer.from(JSON.stringify(config)) },
+          ],
+        },
+        { dirPath: distPath, children: [{ name: 'index.html', data: Buffer.from('<html>test</html>') }] },
+      ];
+      const t = new VirtualTreeContainer(vfs);
+      return {
+        adapter: new WebApplicationsSourceAdapter(registry.types.webapplication, registryAccess, forceIgnore, t),
+        appPath,
+        metaFile,
+      };
+    };
+
+    it('should preserve mixed-case app name (MyApp)', () => {
+      const { adapter, appPath, metaFile } = buildAdapterWithAppName('MyApp');
+      const comp = adapter.getComponent(appPath);
+      expect(comp).to.not.be.undefined;
+      expect(comp!.name).to.equal('MyApp');
+      expect(comp!.fullName).to.equal('MyApp');
+      expect(comp!.xml).to.equal(metaFile);
+    });
+
+    it('should preserve lowercase app name (myapp)', () => {
+      const { adapter, appPath } = buildAdapterWithAppName('myapp');
+      const comp = adapter.getComponent(appPath);
+      expect(comp).to.not.be.undefined;
+      expect(comp!.name).to.equal('myapp');
+      expect(comp!.fullName).to.equal('myapp');
+    });
+
+    it('should preserve uppercase app name (MYAPP)', () => {
+      const { adapter, appPath } = buildAdapterWithAppName('MYAPP');
+      const comp = adapter.getComponent(appPath);
+      expect(comp).to.not.be.undefined;
+      expect(comp!.name).to.equal('MYAPP');
+      expect(comp!.fullName).to.equal('MYAPP');
+    });
+  });
+
   describe('webapplication.json validation', () => {
     // helper: build an adapter whose tree has the given webapplication.json content
     // plus optional extra VirtualDirectory entries for dist, etc.
